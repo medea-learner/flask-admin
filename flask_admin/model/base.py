@@ -1566,17 +1566,8 @@ class BaseModelView(BaseView, ActionsMixin):
         """
             Compatibility helper.
         """
-        try:
-            self.on_model_change(form, model, is_created)
-        except TypeError as e:
-            if re.match(r'on_model_change\(\) takes .* 3 .* arguments .* 4 .* given .*', str(e)):
-                msg = ('%s.on_model_change() now accepts third ' +
-                       'parameter is_created. Please update your code') % self.model
-                warnings.warn(msg)
+        self.on_model_change(form, model, is_created)
 
-                self.on_model_change(form, model)
-            else:
-                raise
 
     def after_model_change(self, form, model, is_created):
         """
