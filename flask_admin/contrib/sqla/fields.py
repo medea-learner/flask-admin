@@ -319,6 +319,109 @@ class InlineModelFormList(InlineFieldList):
             self.inline_view._on_model_change(field, model, is_created)
 
 
+class InlineModelOneFormField(InlineModelFormField):
+    """
+    This class is only for the fields which have relation one-to-one his parent
+    """
+
+    def __init__(self, form_class, info, *args, **kwargs):
+
+        _pk = self.get_primary_key(info.model)
+        if not hasattr(info, 'form_widget_args') or info.form_widget_args is None:
+            info.form_widget_args = dict()
+
+        """ we store the _parent_obj and _parent_model to will be used in the get_pk without have to send them in
+        parameters inasmuch the get_pk method is called from other flask-admin's functions
+        """
+        info.form_widget_args['_parent_obj'] = kwargs['_form']._base_obj
+        info.form_widget_args['_parent_model'] = info.model
+
+        # Generate inline form field
+        form_opts = FormOpts(widget_args=info.form_widget_args,
+                             form_rules=info._form_rules)
+
+        super(InlineModelOneFormField, self).__init__(form_class, _pk, form_opts, **kwargs)
+
+        self.model = self.form_opts.widget_args['_parent_model']
+
+    def get_primary_key(self, model):
+        """
+        this method return the primary key of the model sent in parameter
+        :param model:
+        :return: tuple
+        """
+        mapper = model._sa_class_manager.mapper
+        pks = [mapper.get_property_by_column(c).key for c in mapper.primary_key]
+        if len(pks) > 0:
+            return tuple(pks)
+        else:
+            return None
+
+    def get_field_id(self, field):
+        """
+        get and format id from field
+        :rtype: text_type
+        """
+        field_id = field.get_pk()
+        return tuple(text_type(_) for _ in field_id)
+
+    def display_row_controls(self, field):
+        return field.get_pk() is not None
+
+    def populate_formfield_obj(self, obj, name):
+        """
+        This method populate the obj corresponding to the inline formfield when we have one-to-one relationship
+        because , in this case, this field represents InlineModelFormField and InlineModelFormList in the same time
+        ( Customized field )
+        :param obj:
+        :param name:
+        :return:
+        """
+        for name, field in self.form._fields.items():
+            if name not in self._pk:
+                field.populate_obj(obj, name)
+
+    def populate_obj(self, obj, name):
+        """
+        This method handles the InlineModelFormField ( customized one ) as an InlineModelFormList to keep the concept of
+        fieldList and solve the flask-admin's one-to-one issue
+        :param obj:
+        :param name:
+        :return:
+        """
+        values = getattr(obj, name, None)
+
+        if values is None:
+            # in the one to one relationship : getattr returns None but we need to be list to continue the populate's
+            #  handling
+            values = []
+        else:
+            # we have only one object in the one-to-one relationship
+            values = [values]
+
+        pk_map = dict((get_obj_pk(v, self._pk), v) for v in values)
+
+        # we affect the obj to the FormField because in the post request the attribute _parent_obj in the formfield
+        # come without value due to the initialisation of the formfields before the populate_obj of
+        # InlineModelFormList
+        if self.data:
+            # check if data is not empty
+            if self.form_opts.widget_args['_parent_obj'] is None:
+                self.form_opts.widget_args['_parent_obj'] = obj
+
+            field_id = self.get_field_id(self)
+            is_created = field_id not in pk_map
+            if not is_created:
+                model = pk_map[field_id]
+                self.populate_formfield_obj(model, None)
+            else:
+
+                model = self.model()
+                self.populate_formfield_obj(model, None)
+                values.append(model)
+                setattr(obj, name, values[0])
+
+
 def get_pk_from_identity(obj):
     # TODO: Remove me
     key = identity_key(instance=obj)[1]
@@ -331,19 +434,4 @@ def get_obj_pk(obj, pk):
     :rtype: text_type
     """
 
-    if isinstance(pk, tuple):
-        return tuple(text_type(getattr(obj, k)) for k in pk)
-
-    return text_type(getattr(obj, pk))
-
-
-def get_field_id(field):
-    """
-    get and format id from field
-    :rtype: text_type
-    """
-    field_id = field.get_pk()
-    if isinstance(field_id, tuple):
-        return tuple(text_type(_) for _ in field_id)
-
-    return text_type(field_id)
+    return tuple(text_type(getattr(obj, k)) for k in pk)

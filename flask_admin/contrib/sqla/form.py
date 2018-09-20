@@ -6,6 +6,7 @@ from sqlalchemy import Boolean, Column
 from sqlalchemy.orm import ColumnProperty
 
 from flask_admin import form
+from flask_admin.contrib.sqla.fields import InlineModelOneFormField
 from flask_admin.model.form import (converts, ModelConverterBase,
                                     InlineModelConverterBase, FieldPlaceholder)
 from flask_admin.model.fields import AjaxSelectField, AjaxSelectMultipleField
@@ -570,6 +571,8 @@ class InlineModelConverter(InlineModelConverterBase):
     """
 
     inline_field_list_type = InlineModelFormList
+    inline_form_field_type = InlineModelOneFormField
+
     """
         Used field list type.
 
@@ -711,13 +714,46 @@ class InlineModelConverter(InlineModelConverterBase):
             :return:
                 Form class
         """
-
+        mapper = model._sa_class_manager.mapper
         info = self.get_info(inline_model)
 
-        forward_prop_key, reverse_prop_key = self._calculate_mapping_key_pair(model, info)
+        # Find property from target model to current model
+        target_mapper = info.model._sa_class_manager.mapper
+
+        reverse_prop = None
+
+        for prop in target_mapper.iterate_properties:
+            if hasattr(prop, 'direction') and prop.direction.name in ('MANYTOONE', 'MANYTOMANY'):
+                if issubclass(model, prop.mapper.class_):
+                    reverse_prop = prop
+                    break
+        else:
+            raise Exception('Cannot find reverse relation for model %s' % info.model)
+
+        # Find forward property
+        forward_prop = None
+
+        if prop.direction.name == 'MANYTOONE':
+            candidate = 'ONETOMANY'
+        else:
+            candidate = 'MANYTOMANY'
+
+        # By defalut one_to_one flag is false
+        one_to_one = False
+        for prop in mapper.iterate_properties:
+            if hasattr(prop, 'direction') and prop.direction.name == candidate:
+                #if prop.mapper.class_ == target_mapper.class_:
+                if issubclass(target_mapper.class_, prop.mapper.class_):
+                    forward_prop = prop
+                    # check if it's a one to one relationship using the uselist attribute
+                    if prop.uselist == False and candidate == 'ONETOMANY':
+                        one_to_one = True
+                    break
+        else:
+            raise Exception('Cannot find forward relation for model %s' % info.model)
 
         # Remove reverse property from the list
-        ignore = [reverse_prop_key]
+        ignore = [reverse_prop.key]
 
         if info.form_excluded_columns:
             exclude = ignore + list(info.form_excluded_columns)
@@ -745,22 +781,31 @@ class InlineModelConverter(InlineModelConverterBase):
 
         kwargs = dict()
 
-        label = self.get_label(info, forward_prop_key)
+        label = self.get_label(info, forward_prop.key)
         if label:
             kwargs['label'] = label
 
         if self.view.form_args:
-            field_args = self.view.form_args.get(forward_prop_key, {})
+            field_args = self.view.form_args.get(forward_prop.key, {})
             kwargs.update(**field_args)
 
-        # Contribute field
-        setattr(form_class,
-                forward_prop_key,
-                self.inline_field_list_type(child_form,
-                                            self.session,
-                                            info.model,
-                                            reverse_prop_key,
-                                            info,
-                                            **kwargs))
+        if not one_to_one:
+            # Contribute field
+            setattr(form_class,
+                    forward_prop.key,
+                    self.inline_field_list_type(child_form,
+                                                self.session,
+                                                info.model,
+                                                reverse_prop.key,
+                                                info,
+                                                **kwargs))
+        else:
+            # contribute field corresponding to one-to-one inline model
+            setattr(form_class,
+                    forward_prop.key,
+                    self.inline_form_field_type(child_form,
+                                                info,
+                                                **kwargs
+                                                ))
 
         return form_class
