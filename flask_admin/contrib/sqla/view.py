@@ -1170,7 +1170,7 @@ class ModelView(BaseModelView):
                 Model instance
         """
         try:
-            self.before_model_change(form, model, True)
+            self.before_model_change(form, model, False)
             form.populate_obj(model)
             self._on_model_change(form, model, False)
             self.session.commit()
