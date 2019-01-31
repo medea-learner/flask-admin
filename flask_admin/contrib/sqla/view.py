@@ -1111,6 +1111,22 @@ class ModelView(BaseModelView):
 
         return super(ModelView, self).handle_view_exception(exc)
 
+    def before_model_change(self, form, model, is_created):
+        """
+            Perform some actions before the model change
+
+            Called from create_model before model updated with the new form values
+            By default does nothing.
+
+            :param form:
+                Form used to create/update model
+            :param model:
+                Model that was created/updated
+            :param is_created:
+                True if model was created, False if model was updated
+        """
+        pass
+
     # Model handlers
     def create_model(self, form):
         """
@@ -1126,6 +1142,7 @@ class ModelView(BaseModelView):
             state = instance_state(model)
             self._manager.dispatch.init(state, [], {})
 
+            self.before_model_change(form, model, True)
             form.populate_obj(model)
             self.session.add(model)
             self._on_model_change(form, model, True)
@@ -1153,6 +1170,7 @@ class ModelView(BaseModelView):
                 Model instance
         """
         try:
+            self.before_model_change(form, model, True)
             form.populate_obj(model)
             self._on_model_change(form, model, False)
             self.session.commit()
