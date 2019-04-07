@@ -326,18 +326,28 @@
 
                 // default to a comma for separating list items
                 // allows using spaces as a token separator
-                if ($el.attr('data-token-separators')) {
-                    var tokenSeparators = JSON.parse($el.attr('data-tags'));
+                // if ($el.attr('data-token-separators')) {
+                //     var tokenSeparators = JSON.parse($el.attr('data-tags'));
+                // } else {
+                //     var tokenSeparators = [','];
+                // }
+
+                // change the default separator and tokenSeparators to pipe
+                if ($el.attr('data-separator')) {
+                    var tokenSeparators = [$el.attr('data-separator')]
+                    var separator = $el.attr('data-separator')
                 } else {
-                    var tokenSeparators = [','];
+                    var tokenSeparators = ['|']
+                    var separator = '|'
                 }
 
                 var opts = {
                     width: 'resolve',
                     tags: tags,
                     tokenSeparators: tokenSeparators,
+                    separator: separator,
                     formatNoMatches: function() {
-                        return 'Enter comma separated values';
+                        return 'Enter ' + tokenSeparators[0] + ' separated values';
                     }
                 };
 
