@@ -214,7 +214,10 @@ class AdminModelConverter(ModelConverterBase):
                 not column.default and
                 not column.server_default
             ):
-                kwargs['validators'].append(validators.InputRequired())
+                requirement_options = (validators.Optional, validators.InputRequired)
+                requirement_validator_specified = any(isinstance(v, requirement_options) for v in kwargs['validators'])
+                if not requirement_validator_specified:
+                    kwargs['validators'].append(validators.InputRequired())
 
             # Apply label and description if it isn't inline form field
             if self.view.model == mapper.class_:
