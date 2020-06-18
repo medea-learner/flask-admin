@@ -1152,6 +1152,10 @@ class ModelView(BaseModelView):
                 flash(gettext('Failed to create record. %(error)s', error=str(ex)), 'error')
                 log.exception('Failed to create record.')
 
+                # sometime the flashed message does not contain the exception text "I don't know why!!!"
+                # and we need to log the exception
+                current_app.log_exception(ex)
+
             self.session.rollback()
 
             return False
@@ -1179,6 +1183,10 @@ class ModelView(BaseModelView):
                 flash(gettext('Failed to update record. %(error)s', error=str(ex)), 'error')
                 log.exception('Failed to update record.')
 
+                # sometime the flashed message does not contain the exception text "I don't know why!!!"
+                # and we need to log the exception
+                current_app.log_exception(ex)
+
             self.session.rollback()
 
             return False
@@ -1203,6 +1211,10 @@ class ModelView(BaseModelView):
             if not self.handle_view_exception(ex):
                 flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
                 log.exception('Failed to delete record.')
+
+                # sometime the flashed message does not contain the exception text "I don't know why!!!"
+                # and we need to log the exception
+                current_app.log_exception(ex)
 
             self.session.rollback()
 
