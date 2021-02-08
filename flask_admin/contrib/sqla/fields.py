@@ -119,9 +119,9 @@ class QuerySelectField(SelectFieldBase):
                 self._formdata = valuelist[0]
 
     def pre_validate(self, form):
-        if not self.allow_blank or self.data is not None:
+        if not self.allow_blank or (self._formdata is not None):
             for pk, obj in self._get_object_list():
-                if self.data == obj:
+                if self._formdata == pk:
                     break
             else:
                 raise ValidationError(self.gettext(u'Not a valid choice'))
@@ -173,6 +173,8 @@ class QuerySelectMultipleField(QuerySelectField):
         self._formdata = set(valuelist)
 
     def pre_validate(self, form):
+        # _invlid formdata is only calculated at first access to data, so lets simulate it
+        data = self.data
         if self._invalid_formdata:
             raise ValidationError(self.gettext(u'Not a valid choice'))
         elif self.data:
@@ -180,6 +182,7 @@ class QuerySelectMultipleField(QuerySelectField):
             for v in self.data:
                 if v not in obj_list:
                     raise ValidationError(self.gettext(u'Not a valid choice'))
+
 
 
 class CheckboxListField(QuerySelectMultipleField):

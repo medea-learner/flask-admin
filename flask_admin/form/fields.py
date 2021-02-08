@@ -203,6 +203,9 @@ class JSONField(fields.TextAreaField):
                 return
 
             try:
-                self.data = json.loads(valuelist[0])
+                if isinstance(valuelist[0], dict) or isinstance(valuelist[0], list):
+                    self.data = valuelist[0]
+                else:
+                    self.data = json.loads(valuelist[0])
             except ValueError:
                 raise ValueError(self.gettext('Invalid JSON'))
