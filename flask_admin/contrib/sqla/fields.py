@@ -121,7 +121,7 @@ class QuerySelectField(SelectFieldBase):
     def pre_validate(self, form):
         if not self.allow_blank or (self._formdata is not None):
             for pk, obj in self._get_object_list():
-                if self._formdata == pk:
+                if self._formdata is not None and self._formdata == pk or self.data == obj:
                     break
             else:
                 raise ValidationError(self.gettext(u'Not a valid choice'))
