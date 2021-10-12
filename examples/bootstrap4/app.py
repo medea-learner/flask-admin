@@ -53,6 +53,8 @@ class UserAdmin(CustomView):
     column_filters = ('name', 'email')
     can_export = True
     export_types = ['csv', 'xlsx']
+    can_import = True
+    import_modal = True
 
 
 # Flask views
