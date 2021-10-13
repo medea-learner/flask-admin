@@ -1,3 +1,4 @@
+import os
 import warnings
 import re
 import csv
@@ -22,6 +23,7 @@ from flask_admin.babel import gettext, ngettext
 
 from flask_admin.base import BaseView, expose
 from flask_admin.form import BaseForm, FormOpts, rules
+from flask_admin.form.upload import FileUploadField
 from flask_admin.model import filters, typefmt, template
 from flask_admin.actions import ActionsMixin
 from flask_admin.helpers import (get_form_data, validate_form_on_submit,
@@ -134,6 +136,9 @@ class BaseModelView(BaseView, ActionsMixin):
     can_export = False
     """Is model list export allowed"""
 
+    can_import = True
+    """Is model list import allowed"""
+
     # Templates
     list_template = 'admin/model/list.html'
     """Default list view template"""
@@ -147,6 +152,9 @@ class BaseModelView(BaseView, ActionsMixin):
     details_template = 'admin/model/details.html'
     """Default details view template"""
 
+    import_template = 'admin/model/import.html'
+    """Default import modal template"""
+
     # Modal Templates
     edit_modal_template = 'admin/model/modals/edit.html'
     """Default edit modal template"""
@@ -157,6 +165,9 @@ class BaseModelView(BaseView, ActionsMixin):
     details_modal_template = 'admin/model/modals/details.html'
     """Default details modal view template"""
 
+    import_modal_template = 'admin/model/modals/import.html'
+    """Default import modal template"""
+
     # Modals
     edit_modal = False
     """Setting this to true will display the edit_view as a modal dialog."""
@@ -166,6 +177,9 @@ class BaseModelView(BaseView, ActionsMixin):
 
     details_modal = False
     """Setting this to true will display the details_view as a modal dialog."""
+
+    import_modal = False
+    """Setting this to true will display the import_view as a modal dialog."""
 
     # Customizations
     column_list = ObsoleteAttr('column_list', 'list_columns', None)
@@ -835,6 +849,7 @@ class BaseModelView(BaseView, ActionsMixin):
         self._create_form_class = self.get_create_form()
         self._edit_form_class = self.get_edit_form()
         self._delete_form_class = self.get_delete_form()
+        self._import_form_class = self.get_import_form()
         self._action_form_class = self.get_action_form()
 
         # List View In-Line Editing
@@ -1310,6 +1325,20 @@ class BaseModelView(BaseView, ActionsMixin):
 
         return DeleteForm
 
+    def get_import_form(self):
+        """
+            Create form class for model import view.
+            Override to implement customized behavior.
+        """
+
+        def get_upload_path():
+            return os.path.join("./", "uploads", "import_files")
+
+        class ImportForm(self.form_base_class):
+            import_file = FileUploadField('Import File', base_path=get_upload_path(), allowed_extensions=['csv', 'xls'])
+
+        return ImportForm
+
     def get_action_form(self):
         """
             Create form class for a model action.
@@ -1363,6 +1392,13 @@ class BaseModelView(BaseView, ActionsMixin):
             Override to implement custom behavior.
         """
         return self._list_form_class(get_form_data(), obj=obj)
+
+    def import_form(self, obj=None):
+        """
+            Instantiate model import form and return it.
+            Override to implement custom behavior.
+        """
+        return self._import_form_class(get_form_data(), obj=obj)
 
     def action_form(self, obj=None):
         """
@@ -2223,6 +2259,44 @@ class BaseModelView(BaseView, ActionsMixin):
             flash_errors(form, message='Failed to delete record. %(error)s')
 
         return redirect(return_url)
+
+    @expose('/import/', methods=('GET', 'POST'))
+    def import_view(self):
+        """
+            Import model view
+        """
+        return_url = get_redirect_target() or self.get_url('.index_view')
+
+        if not self.can_import:
+            return redirect(return_url)
+
+        if tablib is None:
+            flash(gettext('Tablib dependency not installed.'), 'error')
+            return redirect(return_url)
+
+        form = self.import_form()
+
+        if self.validate_form(form):
+            result = self.import_model(form)
+            if result:
+                flash(gettext('Records were successfully imported.'), 'success')
+                return redirect(get_redirect_target() or self.get_url('.index_view'))
+            else:
+                flash(gettext("Failed to import Records."), "error")
+                return redirect(get_redirect_target() or self.get_url('.index_view'))
+
+        form_opts = FormOpts(widget_args=self.form_widget_args,
+                             form_rules=None)
+
+        if self.import_modal and request.args.get('modal'):
+            template = self.import_modal_template
+        else:
+            template = self.import_template
+
+        return self.render(template,
+                           form=form,
+                           form_opts=form_opts,
+                           return_url=return_url)
 
     @expose('/action/', methods=('POST',))
     def action_view(self):
