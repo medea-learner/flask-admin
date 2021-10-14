@@ -775,9 +775,9 @@ class BaseModelView(BaseView, ActionsMixin):
         for supported types.
     """
 
-    import_types = ['csv', 'xlsx']
+    import_types = ['csv', 'xlsx', 'xls']
     """
-        A list of available export filetypes. `csv` and `xlsx` only are default, but any
+        A list of available import filetypes. `csv`, `xlsx`, `xls` are default, but any
         filetypes supported by tablib can be used.
 
         Check tablib for https://github.com/kennethreitz/tablib/blob/master/README.rst
@@ -1344,7 +1344,7 @@ class BaseModelView(BaseView, ActionsMixin):
             return os.path.join("./", "uploads", "import_files")
 
         class ImportForm(self.form_base_class):
-            import_file = FileUploadField('Import File', base_path=get_upload_path(), allowed_extensions=['csv', 'xls'])
+            import_file = FileUploadField('Import File', base_path=get_upload_path(), allowed_extensions=self.import_types)
 
         return ImportForm
 
