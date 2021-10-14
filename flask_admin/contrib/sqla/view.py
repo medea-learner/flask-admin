@@ -1236,10 +1236,24 @@ class ModelView(BaseModelView):
         """
         filename = form.import_file.data.filename.lower()
 
-        if filename.endswith(".csv"):
-            imported_data = tablib.Dataset().load(form.import_file.data.stream.read().decode(), format='csv')
-        else:
-            imported_data = tablib.Dataset().load(form.import_file.data.stream.read(), format='xls')
+        try:
+            if any([filename.endswith(_format) for _format in self.import_types]):
+                imported_data = tablib.Dataset().load(
+                    form.import_file.data.stream.read().decode(),
+                    format=filename.split(".")[-1]
+                )
+            else:
+                flash(gettext('Failed to import file. Not acceptable format'), 'error')
+                log.exception('Failed to import file. Not acceptable format')
+
+                return False
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(gettext('Failed to import file. %(error)s', error=str(ex)), 'error')
+                log.exception('Failed to import file.')
+
+            return False
+
         for row in imported_data:
             try:
                 model = self.model(**{key.strip(): row[i].strip() for i, key in enumerate(imported_data.headers)})
@@ -1251,8 +1265,6 @@ class ModelView(BaseModelView):
                     log.exception('Failed to import record.')
 
                 self.session.rollback()
-
-                return False
 
         return True
 

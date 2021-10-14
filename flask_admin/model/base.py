@@ -136,7 +136,7 @@ class BaseModelView(BaseView, ActionsMixin):
     can_export = False
     """Is model list export allowed"""
 
-    can_import = True
+    can_import = False
     """Is model list import allowed"""
 
     # Templates
@@ -769,6 +769,15 @@ class BaseModelView(BaseView, ActionsMixin):
     export_types = ['csv']
     """
         A list of available export filetypes. `csv` only is default, but any
+        filetypes supported by tablib can be used.
+
+        Check tablib for https://github.com/kennethreitz/tablib/blob/master/README.rst
+        for supported types.
+    """
+
+    import_types = ['csv', 'xlsx']
+    """
+        A list of available export filetypes. `csv` and `xlsx` only are default, but any
         filetypes supported by tablib can be used.
 
         Check tablib for https://github.com/kennethreitz/tablib/blob/master/README.rst
